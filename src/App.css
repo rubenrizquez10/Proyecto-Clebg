@@ -1,0 +1,44 @@
+.App {
+  min-height: 100vh;
+  background-image: url('../public/interface_background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed; /* Para que la imagen de fondo no se mueva con el scroll */
+}
+
+/* Estilo para hacer el contenido de la aplicación transparente */
+.App > * { /* Selecciona todos los hijos directos de .App */
+  background-color: rgba(255, 255, 255, 0.5); /* Fondo blanco con 50% de transparencia */
+  padding: 20px; /* Añade un poco de padding para que el contenido no esté pegado a los bordes */
+  border-radius: 8px; /* Bordes redondeados */
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  /* background-color: #f7e57f; */ /* Eliminado el color amarillo */
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  /* border-top: 4px solid #ffdf74; */ /* Eliminado el color amarillo */
+  border-top: 4px solid #ccc; /* Color neutro */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-container p {
+  color: #666;
+  font-size: 16px;
+}
