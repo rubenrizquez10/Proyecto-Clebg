@@ -1,16 +1,33 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path'); // Importa el módulo path
 const jwt = require('jsonwebtoken'); // Importar jsonwebtoken
 const bcrypt = require('bcryptjs'); // Importar bcryptjs
 const db = require('./init_db'); // Importar la conexión a la base de datos
 
 const app = express();
-const PORT = 3002; // Puerto para el backend API
+const PORT = process.env.PORT || 3002; // Render asignará process.env.PORT, 3002 como respaldo local
 const JWT_SECRET = 'supersecretkey'; // Clave secreta para JWT, ¡cambiar en producción!
 
-app.use(cors());
+app.use(cors()); // Simplificado para despliegue de un solo servicio o desarrollo local
 app.use(express.json({ limit: '50mb' })); // Aumentar el límite del tamaño del cuerpo de la solicitud
 app.use(express.urlencoded({ limit: '50mb', extended: true })); // También para datos codificados en URL
+
+// Sirve los archivos estáticos de React si estamos en producción
+if (process.env.NODE_ENV === 'production') {
+  // Asegúrate de que la ruta a la carpeta 'build' sea correcta
+  app.use(express.static(path.join(__dirname, '..', 'build')));
+
+  // Cualquier solicitud que no sea a una ruta de API, sirve el index.html
+  app.get('*', (req, res) => {
+    // Es crucial que todas tus rutas de API comiencen con '/api' para evitar conflictos
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.resolve(__dirname, '..', 'build', 'index.html'));
+    }
+  });
+}
+
+
 
 // Middleware de autenticación
 const authenticateToken = (req, res, next) => {
@@ -52,7 +69,7 @@ clearOldVisits();
 setInterval(clearOldVisits, 60 * 60 * 1000); // Ejecutar cada hora
 
 // Ruta de Login
-app.post('/login', (req, res) => {
+app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
   db.get(`SELECT * FROM users WHERE username = ?`, [username], async (err, user) => {
@@ -74,12 +91,12 @@ app.post('/login', (req, res) => {
 });
 
 // Ruta para obtener información del usuario autenticado (protegida)
-app.get('/me', authenticateToken, (req, res) => {
+app.get('/api/me', authenticateToken, (req, res) => {
   res.json({ username: req.user.username, role: req.user.role });
 });
 
 // Ruta para cambiar la contraseña
-app.post('/change-password', async (req, res) => {
+app.post('/api/change-password', async (req, res) => {
   const { username, currentPassword, newPassword } = req.body;
 
   // Intentar identificar al usuario desde el token si viene incluido (compatibilidad hacia atrás)
@@ -143,7 +160,7 @@ app.post('/change-password', async (req, res) => {
 
 // Rutas para Personal
 // Proteger rutas de modificación de personal
-app.post('/personnel', authenticateToken, authorizeAdmin, (req, res) => {
+app.post('/api/personnel', authenticateToken, authorizeAdmin, (req, res) => {
   const { cedula, nombre, cargo, departamento, telefono, email, fechaIngreso, salario, foto, vacacionesPorDisfrutar } = req.body;
   console.log('Datos recibidos para agregar personal:', req.body); // Log de los datos recibidos
 
@@ -188,7 +205,7 @@ app.post('/personnel', authenticateToken, authorizeAdmin, (req, res) => {
   });
 });
 
-app.put('/personnel/:id', authenticateToken, authorizeAdmin, (req, res) => {
+app.put('/api/personnel/:id', authenticateToken, authorizeAdmin, (req, res) => {
   const { id } = req.params;
   const { cedula, nombre, cargo, departamento, telefono, email, fechaIngreso, salario, foto, vacacionesPorDisfrutar } = req.body;
   if (!cedula || !nombre || !cargo || !departamento) {
@@ -232,7 +249,7 @@ app.put('/personnel/:id', authenticateToken, authorizeAdmin, (req, res) => {
   });
 });
 
-app.delete('/personnel/:id', authenticateToken, authorizeAdmin, (req, res) => {
+app.delete('/api/personnel/:id', authenticateToken, authorizeAdmin, (req, res) => {
   const { id } = req.params;
   db.run(`DELETE FROM personnel WHERE id = ?`, id, function (err) {
     if (err) {
@@ -248,7 +265,7 @@ app.delete('/personnel/:id', authenticateToken, authorizeAdmin, (req, res) => {
 
 // Rutas para Departamentos
 // Proteger rutas de modificación de departamentos
-app.post('/departments', authenticateToken, authorizeAdmin, (req, res) => {
+app.post('/api/departments', authenticateToken, authorizeAdmin, (req, res) => {
   const { name, icon, description, color } = req.body;
   if (!name) {
     return res.status(400).json({ "error": "El nombre del departamento es requerido." });
@@ -265,7 +282,7 @@ app.post('/departments', authenticateToken, authorizeAdmin, (req, res) => {
   });
 });
 
-app.put('/departments/:id', authenticateToken, authorizeAdmin, (req, res) => {
+app.put('/api/departments/:id', authenticateToken, authorizeAdmin, (req, res) => {
   const { id } = req.params;
   const { name, icon, description, color } = req.body;
   if (!name) {
@@ -290,7 +307,7 @@ app.put('/departments/:id', authenticateToken, authorizeAdmin, (req, res) => {
     });
 });
 
-app.delete('/departments/:id', authenticateToken, authorizeAdmin, (req, res) => {
+app.delete('/api/departments/:id', authenticateToken, authorizeAdmin, (req, res) => {
   const { id } = req.params;
   db.run(`DELETE FROM departments WHERE id = ?`, id, function (err) {
     if (err) {
@@ -305,7 +322,7 @@ app.delete('/departments/:id', authenticateToken, authorizeAdmin, (req, res) => 
 });
 
 
-app.get('/personnel', (req, res) => {
+app.get('/api/personnel', (req, res) => {
   db.all("SELECT * FROM personnel", [], (err, rows) => {
     if (err) {
       res.status(400).json({ "error": err.message });
@@ -318,7 +335,7 @@ app.get('/personnel', (req, res) => {
   });
 });
 
-app.get('/personnel/:cedula', (req, res) => {
+app.get('/api/personnel/:cedula', (req, res) => {
   const cedula = req.params.cedula;
   db.get("SELECT * FROM personnel WHERE cedula = ?", [cedula], (err, row) => {
     if (err) {
@@ -336,7 +353,7 @@ app.get('/personnel/:cedula', (req, res) => {
   });
 });
 
-app.get('/departments', (req, res) => {
+app.get('/api/departments', (req, res) => {
   db.all("SELECT * FROM departments", [], (err, rows) => {
     if (err) {
       res.status(400).json({ "error": err.message });
@@ -350,7 +367,7 @@ app.get('/departments', (req, res) => {
 });
 
 // Rutas para visitas
-app.post('/visits', (req, res) => {
+app.post('/api/visits', (req, res) => {
   const { nombreCompleto, cedula, departamentoDestino, motivo, horaEntrada, horaSalida } = req.body;
   // Permitir "Por Definir" para horaSalida
   if (!nombreCompleto || !cedula || !departamentoDestino || !motivo || !horaEntrada || (horaSalida === '' && horaSalida !== 'Por Definir')) {
@@ -381,7 +398,7 @@ app.post('/visits', (req, res) => {
   );
 });
 
-app.get('/visits', (req, res) => {
+app.get('/api/visits', (req, res) => {
   db.all(
     `SELECT * FROM visits WHERE DATE(fechaRegistro) = DATE('now','localtime') ORDER BY datetime(fechaRegistro) DESC`,
     [],
@@ -398,7 +415,7 @@ app.get('/visits', (req, res) => {
   );
 });
 
-app.put('/visits/:id', (req, res) => {
+app.put('/api/visits/:id', (req, res) => {
   const { id } = req.params;
   const { nombreCompleto, cedula, departamentoDestino, motivo, horaEntrada, horaSalida } = req.body;
   // Permitir "Por Definir" para horaSalida
@@ -433,7 +450,7 @@ app.put('/visits/:id', (req, res) => {
   );
 });
 
-app.delete('/visits/:id', (req, res) => {
+app.delete('/api/visits/:id', (req, res) => {
   const { id } = req.params;
   db.run(`DELETE FROM visits WHERE id = ?`, [id], function (err) {
     if (err) {
@@ -448,5 +465,5 @@ app.delete('/visits/:id', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor backend ejecutándose en http://localhost:${PORT}`);
+  console.log(`Servidor backend ejecutándose en el puerto ${PORT}`);
 });
